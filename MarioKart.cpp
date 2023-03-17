@@ -27,82 +27,88 @@ brain Brain;
 
 
 // Robot configuration code.
-motor LeftMotor = motor(PORT1, false);
-motor RightMotor = motor(PORT6, true);
 controller Controller = controller();
-touchled TouchLED5 = touchled(PORT5);
-bumper Bumper8 = bumper(PORT8);
-bumper Bumper9 = bumper(PORT9);
+motor LeftDriveSmart = motor(PORT1, 1, false);
+motor RightDriveSmart = motor(PORT6, 1, true);
+gyro DrivetrainGyro = gyro(PORT4, true);
+smartdrive Drivetrain = smartdrive(LeftDriveSmart, RightDriveSmart, DrivetrainGyro, 200);
+
+colorsensor Color3 = colorsensor(PORT3);
+
+void calibrateDrivetrain() {
+  wait(200, msec);
+  Brain.Screen.print("Calibrating");
+  Brain.Screen.newLine();
+  Brain.Screen.print("Gyro");
+  DrivetrainGyro.calibrate();
+  while (DrivetrainGyro.isCalibrating()) {
+    wait(25, msec);
+  }
+
+  // Clears the screen and returns the cursor to row 1, column 1.
+  Brain.Screen.clearScreen();
+  Brain.Screen.setCursor(1, 1);
+}
 
 // define variable for remote controller enable/disable
 bool RemoteControlCodeEnabled = true;
-
-
-
-
 #pragma endregion VEXcode Generated Robot Configuration
-
+// Include the IQ Library
 #include "vex.h"
   
 // Allows for easier use of the VEX Library
 using namespace vex;
 
-float myVariable, deadBand, lives;
+float myVariable, deadBand, randomnumber, speed;
 
-// "when started" hat block
-int whenStarted1() {
-  lives = 3.0;
-  deadBand = 5.0;
-  TouchLED5.setColor(green);
-  while (!(lives < 1.0)) {
-    if (fabs(static_cast<float>(Controller.AxisA.position())) > deadBand) {
-      LeftMotor.setVelocity(100.0, percent);
-      RightMotor.setVelocity(100.0, percent);
-    }
-    else {
-      LeftMotor.spin(forward);
-      RightMotor.spin(forward);
-    }
-    if (fabs(static_cast<float>(Controller.AxisD.position())) > deadBand) {
-      LeftMotor.setVelocity(-100.0, percent);
-      RightMotor.setVelocity(-100.0, percent);
-    }
-    else {
-      LeftMotor.spin(forward);
-      RightMotor.spin(forward);
-    }
-  wait(20, msec);
+event message1 = event();
+event turnOffNOS = event();
+
+int mathRandomInt(float a, float b) {
+  if (a > b) {
+    // Swap a and b to ensure a is smaller.
+    float c = a;
+    a = b;
+    b = c;
   }
-  return 0;
+  int tmpA = static_cast<int>(a);
+  int tmpB = static_cast<int>(b);
+  int r = tmpA + rand() / (RAND_MAX / (tmpB - tmpA + 1));
+  return r;
+}
+
+// "when Controller ButtonEDown pressed" hat block
+void onevent_ControllerButtonEDown_pressed_0() {
+  if (Color3.detects(red)) {
+    if (static_cast<float>(mathRandomInt(1.0, 10.0)) > 2.0) {
+      Brain.playSound(tada);
+      speed = 1.0;
+      turnOffNOS.broadcast();
+    }
+    else {
+      Brain.playSound(wrongWaySlow);
+      Drivetrain.turnFor(right, 1000.0, degrees);
+    }
+  }
 }
 
 // "when started" hat block
-int whenStarted2() {
-  while (true) {
-    if (Bumper8.pressing()) {
-      lives = lives + -1.0;
-      wait(2.0, seconds);
-    }
-    if (Bumper9.pressing()) {
-      lives = lives + -1.0;
-      wait(2.0, seconds);
-    }
-    if (lives == 2.0) {
-      TouchLED5.setColor(yellow);
-    }
-    if (lives == 1.0) {
-      TouchLED5.setColor(orange);
-    }
-    if (lives == 0.0) {
-      TouchLED5.setColor(red);
-    }
-  wait(20, msec);
-  }
+int whenStarted1() {
   return 0;
 }
 
 
 int main() {
-  vex::task ws1(whenStarted2);
+  // initialize the random number system
+  srand(Brain.Timer.system());
+
+  // Calibrate the Drivetrain Gyro
+  calibrateDrivetrain();
+
+  // register event handlers
+  Controller.ButtonEDown.pressed(onevent_ControllerButtonEDown_pressed_0);
+  turnOffNOS(onevent_turnOffNOS_0);
+
+  wait(15, msec);
   whenStarted1();
 }
